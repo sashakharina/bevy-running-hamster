@@ -46,7 +46,7 @@ fn animate_sprite(
             duration = duration + increase_time_step;
         }
 
-        if keyboard_input.just_pressed(KeyCode::Return) {
+        if keyboard_input.just_pressed(KeyCode::Space) {
             if duration > decrease_time_step {
                 duration = duration - decrease_time_step;
             }
