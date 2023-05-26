@@ -37,32 +37,39 @@ fn animate_sprite(
     )>,
 ) {
     for (indices, mut timer, mut sprite) in &mut query {
-        let max_time = 1000;
-        let decrease_time_step = 50 as u64;
+        let max_time = 800;
+        let decrease_time_step = 40 as u64;
         let increase_time_step = 1;
         let mut duration = timer.duration().as_millis() as u64;
 
-        if duration < max_time {
-            duration = duration + increase_time_step;
+        duration = duration + increase_time_step;
+
+        if duration >= max_time {
+            timer.pause();
+            sprite.index = indices.first;
+            duration = max_time;
         }
 
         if keyboard_input.just_pressed(KeyCode::Space) {
             if duration > decrease_time_step {
                 duration = duration - decrease_time_step;
+                timer.unpause();
             }
         }
 
         timer.set_duration(Duration::from_millis(duration));
 
-        timer.tick(time.delta());
-        if timer.just_finished() {
-            sprite.index = if sprite.index == indices.last {
-                indices.first
-            } else {
-                sprite.index + 1
-            };
+        // if !timer.paused() {
+            timer.tick(time.delta());
+            if timer.just_finished() {
+                sprite.index = if sprite.index == indices.last {
+                    indices.first
+                } else {
+                    sprite.index + 1
+                };
+            }
         }
-    }
+    // }
 }
 
 fn setup_camera(
