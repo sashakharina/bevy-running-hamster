@@ -2,21 +2,32 @@ use std::time::Duration;
 
 use bevy::{prelude::*, window::PrimaryWindow};
 
+const MAX_ANIMATION_DURATION_IN_MILLIS: u64 = 800;
+const SCOREBOARD_FONT_SIZE: f32 = 40.0;
+const SCOREBOARD_TEXT_PADDING: Val = Val::Px(5.0);
+const TEXT_COLOR: Color = Color::rgb(0.5, 0.5, 1.0);
+const SCORE_COLOR: Color = Color::rgb(1.0, 0.5, 0.5);
+
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins.set(ImagePlugin::default_nearest()))
+        .insert_resource(Scoreboard { score: 0 })
         .add_startup_systems((
             setup_camera,
             setup_hamster,
+            setup_score,
         ))
-        .add_systems(
-            (animate_sprite,
+        .add_systems((
+            animate_sprite,
+            update_scoreboard,
         ))
         .run();
 }
 
-#[derive(Component)]
-struct Speed (f32);
+#[derive(Resource)]
+struct Scoreboard {
+    score: u64,
+}
 
 #[derive(Component)]
 struct AnimationIndices {
@@ -30,6 +41,7 @@ struct AnimationTimer(Timer);
 fn animate_sprite(
     time: Res<Time>,
     keyboard_input: Res<Input<KeyCode>>,
+    mut scoreboard: ResMut<Scoreboard>,
     mut query: Query<(
         &AnimationIndices,
         &mut AnimationTimer,
@@ -37,17 +49,16 @@ fn animate_sprite(
     )>,
 ) {
     for (indices, mut timer, mut sprite) in &mut query {
-        let max_time = 800;
         let decrease_time_step = 40 as u64;
         let increase_time_step = 1;
         let mut duration = timer.duration().as_millis() as u64;
 
         duration = duration + increase_time_step;
 
-        if duration >= max_time {
+        if duration >= MAX_ANIMATION_DURATION_IN_MILLIS {
             timer.pause();
             sprite.index = indices.first;
-            duration = max_time;
+            duration = MAX_ANIMATION_DURATION_IN_MILLIS;
         }
 
         if keyboard_input.just_pressed(KeyCode::Space) {
@@ -57,9 +68,12 @@ fn animate_sprite(
             }
         }
 
+        if 1000/duration > scoreboard.score && duration < MAX_ANIMATION_DURATION_IN_MILLIS {
+            scoreboard.score = 1000/duration;
+        }
+
         timer.set_duration(Duration::from_millis(duration));
 
-        // if !timer.paused() {
             timer.tick(time.delta());
             if timer.just_finished() {
                 sprite.index = if sprite.index == indices.last {
@@ -69,7 +83,11 @@ fn animate_sprite(
                 };
             }
         }
-    // }
+}
+
+fn update_scoreboard(scoreboard: Res<Scoreboard>, mut query: Query<&mut Text>) {
+    let mut text = query.single_mut();
+    text.sections[1].value = scoreboard.score.to_string();
 }
 
 fn setup_camera(
@@ -98,7 +116,7 @@ fn setup_hamster(
   
     let animation_indices = AnimationIndices { first: 1, last: 4 };
 
-    let hamster_speed = Speed(1.0);
+    let hamster_speed = MAX_ANIMATION_DURATION_IN_MILLIS as f32 / 1000.0;
     commands.spawn((
         SpriteSheetBundle {
             texture_atlas: texture_atlas_handle,
@@ -111,6 +129,41 @@ fn setup_hamster(
             ..default()
         },
         animation_indices,
-        AnimationTimer(Timer::from_seconds(hamster_speed.0, TimerMode::Repeating)),
+        AnimationTimer(Timer::from_seconds(hamster_speed, TimerMode::Repeating)),
     ));
+}
+
+fn setup_score(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    scoreboard: Res<Scoreboard>,
+) {
+    commands.spawn(
+        TextBundle::from_sections([
+            TextSection::new(
+                "Score: ",
+                TextStyle {
+                    font: asset_server.load("fonts/FiraMono-Medium.ttf"),
+                    font_size: SCOREBOARD_FONT_SIZE,
+                    color: TEXT_COLOR,
+                },
+            ),
+            TextSection::new(
+                scoreboard.score.to_string(),
+                TextStyle {
+                font: asset_server.load("fonts/FiraMono-Medium.ttf"),
+                font_size: SCOREBOARD_FONT_SIZE,
+                color: SCORE_COLOR,
+            }),
+        ])
+        .with_style(Style {
+            position_type: PositionType::Absolute,
+            position: UiRect {
+                top: SCOREBOARD_TEXT_PADDING,
+                left: SCOREBOARD_TEXT_PADDING,
+                ..default()
+            },
+            ..default()
+        }),
+    );
 }
